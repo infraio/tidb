@@ -249,6 +249,7 @@ import (
 	status		"STATUS"
 	stringType	"string"
 	subDate		"SUBDATE"
+	strcmp      "STRCMP"
 	substring	"SUBSTRING"
 	substringIndex	"SUBSTRING_INDEX"
 	sum		"SUM"
@@ -1696,7 +1697,7 @@ NotKeywordToken:
 	"ABS" | "ADDDATE" | "ADMIN" | "COALESCE" | "CONCAT" | "CONCAT_WS" | "CONNECTION_ID" | "CUR_TIME"| "COUNT" | "DAY"
 |	"DATE_ADD" | "DATE_SUB" | "DAYNAME" | "DAYOFMONTH" | "DAYOFWEEK" | "DAYOFYEAR" | "FOUND_ROWS" | "GROUP_CONCAT"| "HOUR"
 |	"IFNULL" | "LENGTH" | "LOCATE" | "MAX" | "MICROSECOND" | "MIN" | "MINUTE" | "NULLIF" | "MONTH" | "NOW" | "POW"
-|	"POWER" | "RAND" | "SECOND" | "SQL_CALC_FOUND_ROWS" | "SUBDATE" | "SUBSTRING" %prec lowerThanLeftParen
+|	"POWER" | "RAND" | "SECOND" | "SQL_CALC_FOUND_ROWS" | "SUBDATE" | "STRCMP" | "SUBSTRING" %prec lowerThanLeftParen
 |	"SUBSTRING_INDEX" | "SUM" | "TRIM" | "VERSION" | "WEEKDAY" | "WEEKOFYEAR" |	"YEARWEEK"
 
 /************************************************************************************
@@ -2315,10 +2316,17 @@ FunctionCallNonKeyword:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1.(string)), Args: []ast.ExprNode{$3.(ast.ExprNode)}}
 	}
+|   "STRCMP" '(' Expression ',' Expression ')'
+	{
+		$$ = &ast.FuncStrcmpExpr{
+			Left: $3.(ast.ExprNode),
+			Right: $5.(ast.ExprNode),
+		}
+	}
 |	"SUBSTRING" '(' Expression ',' Expression ')'
 	{
 		$$ = &ast.FuncSubstringExpr{
-			StrExpr: $3.(ast.ExprNode), 
+			StrExpr: $3.(ast.ExprNode),
 			Pos: $5.(ast.ExprNode),
 		}	
 	}

@@ -32,6 +32,7 @@ var (
 	_ FuncNode = &FuncDateArithExpr{}
 	_ FuncNode = &FuncExtractExpr{}
 	_ FuncNode = &FuncLocateExpr{}
+	_ FuncNode = &FuncStrcmpExpr{}
 	_ FuncNode = &FuncSubstringExpr{}
 	_ FuncNode = &FuncSubstringIndexExpr{}
 	_ FuncNode = &FuncTrimExpr{}
@@ -149,6 +150,36 @@ func (n *FuncCastExpr) Accept(v Visitor) (Node, bool) {
 		return n, false
 	}
 	n.Expr = node.(ExprNode)
+	return v.Leave(n)
+}
+
+// FuncStrcmpExpr returns the strcmp as specified.
+// See: http://dev.mysql.com/doc/refman/5.7/en/string-comparison-functions.html
+type FuncStrcmpExpr struct {
+	funcNode
+
+	Left ExprNode
+	Right ExprNode
+
+}
+
+// Accept implements Node Accept interface.
+func (n *FuncStrcmpExpr) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*FuncStrcmpExpr)
+	node, ok := n.Left.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Left = node.(ExprNode)
+	node, ok = n.Right.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Right = node.(ExprNode)
 	return v.Leave(n)
 }
 

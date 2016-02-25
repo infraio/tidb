@@ -74,6 +74,8 @@ func (f *flagSetter) Leave(in Node) (Node, bool) {
 		x.SetFlag(FlagHasFunc | x.Date.GetFlag())
 	case *FuncLocateExpr:
 		f.funcLocate(x)
+	case *FuncStrcmpExpr:
+		f.funcStrcmp(x)
 	case *FuncSubstringExpr:
 		f.funcSubstring(x)
 	case *FuncSubstringIndexExpr:
@@ -167,6 +169,11 @@ func (f *flagSetter) funcCall(x *FuncCallExpr) {
 	for _, val := range x.Args {
 		flag |= val.GetFlag()
 	}
+	x.SetFlag(flag)
+}
+
+func (f *flagSetter) funcStrcmp(x *FuncStrcmpExpr) {
+	flag := FlagHasFunc | x.Left.GetFlag() | x.Right.GetFlag()
 	x.SetFlag(flag)
 }
 

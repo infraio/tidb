@@ -134,6 +134,8 @@ func (e *Evaluator) Leave(in ast.Node) (out ast.Node, ok bool) {
 		ok = e.funcExtract(v)
 	case *ast.FuncLocateExpr:
 		ok = e.funcLocate(v)
+	case *ast.FuncStrcmpExpr:
+		ok = e.funcStrcmp(v)
 	case *ast.FuncSubstringExpr:
 		ok = e.funcSubstring(v)
 	case *ast.FuncSubstringIndexExpr:
@@ -841,6 +843,22 @@ func (e *Evaluator) funcSubstring(v *ast.FuncSubstringExpr) bool {
 		end = len(str)
 	}
 	v.SetValue(str[pos:end])
+	return true
+}
+
+func (e *Evaluator) funcStrcmp(v *ast.FuncStrcmpExpr) bool {
+	left, err := types.ToString(v.Left.GetValue())
+	if err != nil {
+		e.err = ErrInvalidOperation.Gen("Strcmp invalid first arg, need string but get %T", v.Left.GetValue())
+		return false
+	}
+	right, err := types.ToString(v.Right.GetValue())
+	if err != nil {
+		e.err = ErrInvalidOperation.Gen("Strcmp invalid second arg, need string but get %T", v.Right.GetValue())
+		return false
+	}
+	res:= types.CompareString(left, right)
+	v.SetValue(res)
 	return true
 }
 

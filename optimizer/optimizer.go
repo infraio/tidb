@@ -69,7 +69,7 @@ func (c *supportChecker) Enter(in ast.Node) (ast.Node, bool) {
 	switch x := in.(type) {
 	case *ast.TableName:
 		if strings.EqualFold(x.Schema.O, perfschema.Name) {
-			c.unsupported = true
+			c.unsupported = false
 		}
 	}
 	return in, c.unsupported

@@ -23,6 +23,7 @@ import (
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/model"
 	"github.com/pingcap/tidb/mysql"
+	"github.com/pingcap/tidb/perfschema"
 	"github.com/pingcap/tidb/store/localstore"
 	"github.com/pingcap/tidb/store/localstore/goleveldb"
 	"github.com/pingcap/tidb/util/testutil"
@@ -101,13 +102,13 @@ func (*testSuite) TestT(c *C) {
 	is := handle.Get()
 
 	schemaNames := is.AllSchemaNames()
-	c.Assert(len(schemaNames), Equals, 2)
-	c.Assert(testutil.CompareUnorderedStringSlice(schemaNames, []string{infoschema.Name, "Test"}), IsTrue)
+	c.Assert(len(schemaNames), Equals, 3)
+	c.Assert(testutil.CompareUnorderedStringSlice(schemaNames, []string{infoschema.Name, perfschema.Name, "Test"}), IsTrue)
 
 	schemas := is.AllSchemas()
-	c.Assert(len(schemas), Equals, 2)
+	c.Assert(len(schemas), Equals, 3)
 	schemas = is.Clone()
-	c.Assert(len(schemas), Equals, 2)
+	c.Assert(len(schemas), Equals, 3)
 
 	c.Assert(is.SchemaExists(dbName), IsTrue)
 	c.Assert(is.SchemaExists(noexist), IsFalse)

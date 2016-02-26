@@ -17,14 +17,12 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/ngaut/log"
-	"github.com/pingcap/tidb/ast"
-	"github.com/pingcap/tidb/util/codec"
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/pingcap/tidb/kv"
+	"github.com/pingcap/tidb/terror"
 )
 
 // statementInfo defines statement instrument information.
@@ -101,7 +99,7 @@ type StatementState struct {
 const (
 	// Maximum allowed number of elements in table events_statements_history.
 	// TODO: make it configurable?
-	stmtsHistoryElemMax uint64 = 1024
+	stmtsHistoryElemMax int = 1024
 )
 
 var (
@@ -257,78 +255,37 @@ func state2Record(state *StatementState) []interface{} {
 }
 
 func (ps *perfSchema) updateEventsStmtsCurrent(connID uint64, record []interface{}) error {
-	store := ps.stores[TableStmtsCurrent]
-
-	batch := pool.Get().(*leveldb.Batch)
-	defer func() {
-		batch.Reset()
-		pool.Put(batch)
-	}()
-
-	rawKey := []interface{}{connID}
-	key, err := codec.EncodeKey(nil, rawKey...)
-	if err != nil {
+	// Try AddRecord
+	tbl := ps.mTables[TableStmtsCurrent]
+	_, err := tbl.AddRecord(nil, record)
+	if err == nil {
+		return nil
+	}
+	if terror.ErrorNotEqual(err, kv.ErrKeyExists) {
 		return errors.Trace(err)
 	}
-	val, err := codec.EncodeValue(nil, record...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	batch.Put(key, val)
-
-	err = store.Write(batch, nil)
+	// Update it
+	handle := int64(connID)
+	err = tbl.UpdateRecord(nil, handle, nil, record, nil)
 	return errors.Trace(err)
 }
 
 func (ps *perfSchema) appendEventsStmtsHistory(record []interface{}) error {
-	store := ps.stores[TableStmtsHistory]
-	lastLsn := atomic.AddUint64(ps.lsns[TableStmtsHistory], 1)
-
-	batch := pool.Get().(*leveldb.Batch)
-	defer func() {
-		batch.Reset()
-		pool.Put(batch)
-	}()
-
-	lsn := lastLsn - 1
-	rawKey := []interface{}{uint64(lsn)}
-	key, err := codec.EncodeKey(nil, rawKey...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	val, err := codec.EncodeValue(nil, record...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	batch.Put(key, val)
-
-	// Ensure no more than stmtsHistoryElemMax elements in this table.
-	if lastLsn > stmtsHistoryElemMax {
-		rawKey = []interface{}{uint64(lastLsn - stmtsHistoryElemMax)}
-		key, err = codec.EncodeKey(nil, rawKey...)
+	tbl := ps.mTables[TableStmtsHistory]
+	if len(ps.historyHandles) < stmtsHistoryElemMax {
+		h, err := tbl.AddRecord(nil, record)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		batch.Delete(key)
+		ps.historyHandles = append(ps.historyHandles, h)
+		return nil
 	}
-
-	err = store.Write(batch, nil)
+	// If histroy is full, replace old data
+	if ps.historyCursor >= len(ps.historyHandles) {
+		ps.historyCursor = 0
+	}
+	h := ps.historyHandles[ps.historyCursor]
+	ps.historyCursor++
+	err := tbl.UpdateRecord(nil, h, nil, record, nil)
 	return errors.Trace(err)
-}
-
-func init() {
-	// Existing instrument names are the same as MySQL 5.7
-	PerfHandle.RegisterStatement("sql", "create_db", (*ast.CreateDatabaseStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "drop_db", (*ast.DropDatabaseStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "create_table", (*ast.CreateTableStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "drop_table", (*ast.DropTableStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "create_index", (*ast.CreateIndexStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "drop_index", (*ast.DropIndexStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "truncate", (*ast.TruncateTableStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "select", (*ast.SelectStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "union", (*ast.UnionStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "insert", (*ast.InsertStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "delete", (*ast.DeleteStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "update", (*ast.UpdateStmt)(nil))
-	PerfHandle.RegisterStatement("sql", "show", (*ast.ShowStmt)(nil))
 }

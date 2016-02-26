@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/ngaut/log"
+	"github.com/pingcap/tidb/ast"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/terror"
 )
@@ -274,11 +275,18 @@ func (ps *perfSchema) appendEventsStmtsHistory(record []interface{}) error {
 	tbl := ps.mTables[TableStmtsHistory]
 	if len(ps.historyHandles) < stmtsHistoryElemMax {
 		h, err := tbl.AddRecord(nil, record)
-		if err != nil {
+		if err == nil {
+			ps.historyHandles = append(ps.historyHandles, h)
+			return nil
+		}
+		if terror.ErrorNotEqual(err, kv.ErrKeyExists) {
 			return errors.Trace(err)
 		}
-		ps.historyHandles = append(ps.historyHandles, h)
-		return nil
+		// THREAD_ID is PK
+		handle := int64(record[0].(uint64))
+		err = tbl.UpdateRecord(nil, handle, nil, record, nil)
+		return errors.Trace(err)
+
 	}
 	// If histroy is full, replace old data
 	if ps.historyCursor >= len(ps.historyHandles) {
@@ -288,4 +296,32 @@ func (ps *perfSchema) appendEventsStmtsHistory(record []interface{}) error {
 	ps.historyCursor++
 	err := tbl.UpdateRecord(nil, h, nil, record, nil)
 	return errors.Trace(err)
+}
+
+func registerStatements() {
+	// Existing instrument names are the same as MySQL 5.7
+	PerfHandle.RegisterStatement("sql", "alter_table", (*ast.AlterTableStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "begin", (*ast.BeginStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "commit", (*ast.CommitStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "create_db", (*ast.CreateDatabaseStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "create_index", (*ast.CreateIndexStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "create_table", (*ast.CreateTableStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "deallocate", (*ast.DeallocateStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "delete", (*ast.DeleteStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "do", (*ast.DoStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "drop_db", (*ast.DropDatabaseStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "drop_table", (*ast.DropTableStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "drop_index", (*ast.DropIndexStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "execute", (*ast.ExecuteStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "explain", (*ast.ExplainStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "insert", (*ast.InsertStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "prepare", (*ast.PrepareStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "rollback", (*ast.RollbackStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "select", (*ast.SelectStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "set", (*ast.SetStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "show", (*ast.ShowStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "truncate", (*ast.TruncateTableStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "union", (*ast.UnionStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "update", (*ast.UpdateStmt)(nil))
+	PerfHandle.RegisterStatement("sql", "use", (*ast.UseStmt)(nil))
 }

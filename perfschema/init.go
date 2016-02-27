@@ -305,6 +305,7 @@ func buildUsualColumnInfo(offset int, name string, tp byte, size int, flag uint,
 		Offset:       offset,
 		FieldType:    fieldType,
 		DefaultValue: def,
+		State:        model.StatePublic,
 	}
 	return colInfo
 }
@@ -327,6 +328,7 @@ func buildEnumColumnInfo(offset int, name string, elems []string, flag uint, def
 		Offset:       offset,
 		FieldType:    fieldType,
 		DefaultValue: def,
+		State:        model.StatePublic,
 	}
 	return colInfo
 }

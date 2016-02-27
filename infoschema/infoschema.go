@@ -392,7 +392,7 @@ func (h *Handle) Set(newInfo []*model.DBInfo, schemaMetaVersion int64) error {
 			return errors.Errorf("table `%s` is missing.", t.Name)
 		}
 		info.tables[t.ID] = tbl
-		tname := tableName{isDB.Name.L, t.Name.L}
+		tname := tableName{psDB.Name.L, t.Name.L}
 		info.tableNameToID[tname] = t.ID
 		for _, c := range t.Columns {
 			info.columns[c.ID] = c
